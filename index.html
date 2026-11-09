@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f9fc">
+<meta name="description" content="Panel privado de trading para FC 27 Ultimate Team.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<title>FC27 Trader</title>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brandmark">FC</div><div><strong>FC27 Trader</strong><small>ULTIMATE TEAM · CONSOLA</small></div></div>
+  <div class="header-actions"><span class="private"><i></i> PRIVADO · ESTE DISPOSITIVO</span><button id="installBtn" class="btn ghost" hidden>Instalar app</button></div>
+</header>
+<main class="wrap">
+  <section class="hero">
+    <div><p class="eyebrow">CENTRO DE OPERACIONES</p><h1>Tu mercado.<br><span>Tu estrategia.</span></h1><p class="muted">Seguimiento de cartas, cálculo de operaciones y control de capital.</p></div>
+    <div class="hero-side"><span class="status-dot"></span><span id="dataStatus">Precios que tú registras · sin feed automático gratuito</span><small>Mercado de consola (Xbox / PlayStation)</small></div>
+  </section>
+
+  <section class="stats">
+    <article class="stat-card"><span>Capital disponible</span><strong id="capitalDisplay">342,000</strong><small>Monedas UT</small></article>
+    <article class="stat-card"><span>Invertido</span><strong id="investedDisplay">0</strong><small>En operaciones abiertas</small></article>
+    <article class="stat-card"><span>Ganancia realizada</span><strong id="profitDisplay">0</strong><small>Operaciones cerradas</small></article>
+    <article class="stat-card"><span>Impuesto de venta</span><strong>5%</strong><small>Aplicado al cálculo</small></article>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="radar">Radar</button><button class="tab" data-tab="portfolio">Cartera</button><button class="tab" data-tab="strategies">Estrategias</button><button class="tab" data-tab="calculator">Calculadora</button><button class="tab" data-tab="settings">Ajustes</button>
+  </nav>
+
+  <section id="radar" class="panel active">
+    <div class="section-head"><div><p class="eyebrow">OPORTUNIDADES</p><h2>Radar de cartas</h2></div><button class="btn primary" id="addCardBtn">+ Añadir carta</button></div>
+    <div class="notice"><strong>Importante:</strong> no existe una API gratuita y oficial de precios de consola, así que el radar solo usa los precios que registres o importes (Ajustes → CSV). Nada aquí es un precio simulado: si no hay dato, no hay señal. Las señales son orientativas y no garantizan una venta.</div>
+    <div id="opps" class="notice" style="display:none"></div>
+    <div class="filters"><select id="mode" aria-label="Estrategia"><option value="beginner">Principiante (conservador)</option><option value="pro">Avanzado (más agresivo)</option></select><input id="searchCards" placeholder="Buscar jugador..." aria-label="Buscar jugador"><select id="filterSignal"><option value="all">Todas las señales</option><option value="buy">Comprar</option><option value="hold">Mantener</option><option value="sell">Vender / evitar</option></select></div>
+    <div id="cardsGrid" class="cards-grid"></div>
+  </section>
+
+  <section id="portfolio" class="panel">
+    <div class="section-head"><div><p class="eyebrow">CONTROL DE CAPITAL</p><h2>Mi cartera</h2></div></div>
+    <div class="form-card">
+      <h3>Registrar operación</h3>
+      <form id="tradeForm" class="form-grid">
+        <label>Jugador<input name="player" required placeholder="Ej. Aitana Bonmatí"></label>
+        <label>Precio de compra<input name="buy" required type="number" min="1" placeholder="175000"></label>
+        <label>Precio de venta<input name="sell" type="number" min="0" placeholder="Dejar vacío si sigue abierta"></label>
+        <label>Cantidad<input name="qty" required type="number" min="1" value="1"></label>
+        <button class="btn primary" type="submit">Guardar operación</button>
+      </form>
+    </div>
+    <div id="tradesList" class="table-wrap"></div>
+  </section>
+
+  <section id="strategies" class="panel">
+    <div class="section-head"><div><p class="eyebrow">GUÍA</p><h2>Estrategias de trading</h2></div></div>
+    <div class="form-card"><h3>Principiante</h3><p class="muted">• Compra solo cartas con mucha liquidez (meta, muchos listados), al menos 10% bajo su promedio.<br>• Exige margen neto mínimo de 5% después del impuesto.<br>• No metas más del 20–25% de tu capital en una sola carta.<br>• Evita cartas que caen más de 8% de golpe: puede ser una promo o un cambio de meta.<br>• Vende a tu objetivo, no al mínimo del mercado.</p></div>
+    <div class="form-card"><h3>Avanzado</h3><p class="muted">• Compra cerca del piso del rango (≈6% bajo el promedio) y vende cerca del techo.<br>• Reparte el capital en 5–10 cartas y rota rápido: margen chico con alta rotación.<br>• Revisa el mínimo real del mercado antes de listar, no solo el último precio.<br>• Mantén los precios al día: con datos de más de 24 h la señal pierde valor.<br>• Esta app no automatiza compras ni ventas: hacerlo viola los términos de EA y arriesga tu cuenta.</p></div>
+  </section>
+
+  <section id="calculator" class="panel">
+    <div class="section-head"><div><p class="eyebrow">ANTES DE INVERTIR</p><h2>Calculadora de trading</h2></div></div>
+    <div class="calc-layout">
+      <div class="form-card">
+        <label>Capital disponible<input id="calcCapital" type="number" value="342000"></label>
+        <label>Precio de compra<input id="calcBuy" type="number" value="85000"></label>
+        <label>Precio objetivo de venta<input id="calcSell" type="number" value="96000"></label>
+        <label>Cantidad de cartas<input id="calcQty" type="number" min="1" value="1"></label>
+      </div>
+      <div class="result-card"><span>Beneficio neto estimado</span><strong id="calcProfit">+6,200</strong><div class="result-row"><span>Venta tras impuesto</span><b id="calcNet">91,200</b></div><div class="result-row"><span>Precio de equilibrio</span><b id="calcBreak">89,474</b></div><div class="result-row"><span>ROI neto</span><b id="calcRoi">7.29%</b></div><div class="result-row"><span>Saldo tras compra</span><b id="calcRemaining">257,000</b></div><p id="calcHint" class="muted">Ejemplo matemático, no una señal de mercado.</p></div>
+    </div>
+  </section>
+
+  <section id="settings" class="panel">
+    <div class="section-head"><div><p class="eyebrow">CONFIGURACIÓN</p><h2>Privacidad y alertas</h2></div></div>
+    <div class="settings-grid">
+      <div class="form-card"><h3>Capital inicial</h3><label>Monedas<input id="capitalInput" type="number" min="0" value="342000"></label><button id="saveCapital" class="btn primary">Guardar capital</button></div>
+      <div class="form-card"><h3>Notificaciones</h3><p class="muted">Activa alertas locales cuando una carta guardada alcance el precio objetivo. Las notificaciones del navegador requieren permiso y HTTPS (o localhost).</p><button id="notifyBtn" class="btn primary">Activar notificaciones</button><p id="notifyStatus" class="muted"></p></div>
+      <div class="form-card"><h3>Importar precios (CSV)</h3><p class="muted">Un archivo con una fila por precio: jugador,precio,fecha (la fecha es opcional, sin comas en el precio). Cada importación suma al historial y recalcula el promedio.</p><input id="csvFile" type="file" accept=".csv,.txt" hidden><button id="csvBtn" class="btn primary">Importar CSV</button><p id="csvStatus" class="muted"></p></div>
+      <div class="form-card"><h3>Datos y privacidad</h3><p class="muted">Esta versión guarda datos en el almacenamiento local de este navegador. No hay cuenta ni sincronización entre dispositivos.</p><button id="exportBtn" class="btn ghost">Exportar respaldo JSON</button><button id="resetBtn" class="btn danger">Borrar datos locales</button></div>
+      <div class="form-card"><h3>Conexión automática</h3><p class="muted">No hay fuente gratuita y legal de precios en tiempo real para consola. La app funciona con tus datos: actualiza precios a mano o impórtalos por CSV. Este campo queda reservado por si algún día tienes una fuente propia. No pongas claves secretas aquí.</p><label>URL del backend (opcional)<input id="apiUrl" placeholder="https://tu-servidor.example/api/prices"></label><button id="saveApi" class="btn ghost">Guardar URL</button><p id="apiStatus" class="muted"></p></div>
+    </div>
+  </section>
+  <footer><span>FC27 Trader · Prototipo privado</span><span>Sin conexión oficial con EA Sports FC</span></footer>
+</main>
+
+<dialog id="cardDialog">
+<form method="dialog" id="cardForm">
+  <div class="dialog-head"><h3>Añadir carta al radar</h3><button class="x" value="cancel" aria-label="Cerrar">×</button></div>
+  <label>Jugador<input name="name" required placeholder="Nombre de la carta"></label>
+  <div class="form-grid"><label>Precio actual<input name="price" required type="number" min="1" placeholder="85000"></label><label>Precio objetivo de compra<input name="entry" type="number" min="1" placeholder="80000"></label><label>Objetivo de venta<input name="target" type="number" min="1" placeholder="96000"></label><label>Variación 24 h (%)<input name="change" type="number" step=".1" placeholder="-4"></label></div>
+  <label>Tipo<select name="kind"><option>Meta oro</option><option>Especial</option><option>Icono / Héroe</option><option>Otro</option></select></label>
+  <button class="btn primary full" value="save">Guardar carta</button>
+</form>
+</dialog>
+<script src="app.js"></script>
+</body>
+</html>

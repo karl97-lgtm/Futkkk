@@ -1,0 +1,55 @@
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const KEY="fc27trader-v1";
+const defaults={mode:"beginner",capital:342000,apiUrl:"",cards:[
+{name:"Aitana Bonmatí",price:175000,entry:165000,target:190000,change:-3.2,kind:"Meta oro"},
+{name:"Orkun Kökçü",price:68500,entry:62000,target:78000,change:2.1,kind:"Especial"},
+{name:"Carta de ejemplo",price:85000,entry:80000,target:96000,change:-1.8,kind:"Meta oro"}
+],trades:[],alertsSent:[]};
+let state=load();
+function load(){try{return {...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{return structuredClone(defaults)}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render()}
+function money(n){return Math.round(n||0).toLocaleString("en-US")}
+const MODES={beginner:{disc:.90,margin:1.05},pro:{disc:.94,margin:1.03}};
+function spark(c){const h=(c.history||[]).slice(-20);if(h.length<2)return "";const v=h.map(x=>x.p),lo=Math.min(...v),hi=Math.max(...v),r=hi-lo||1;const pts=v.map((p,i)=>(i/(v.length-1)*100).toFixed(1)+","+(28-(p-lo)/r*26).toFixed(1)).join(" ");return `<svg viewBox="0 0 100 30" preserveAspectRatio="none" style="width:100%;height:36px;margin-top:8px"><polyline points="${pts}" fill="none" stroke="#2f6fed" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`}
+function ago(c){const h=c.history||[];if(!h.length)return "Sin datos";const m=(Date.now()-h[h.length-1].t)/6e4,s=m<60?Math.round(m)+" min":m<1440?Math.round(m/60)+" h":Math.round(m/1440)+" d";return (m>1440?"⚠ ":"")+"Actualizado hace "+s}
+function avg(c){const h=(c.history||[]).slice(-14);return h.length>=3?h.reduce((a,x)=>a+x.p,0)/h.length:0}
+function setPrice(c,p,t){const h=c.history=c.history||[];t=t||Date.now();if(!h.length&&c.price>0)h.push({t:t-1,p:c.price});const prev=h.length?h[h.length-1].p:0;c.change=prev?(p-prev)/prev*100:0;h.push({t,p});if(h.length>60)h.splice(0,h.length-60);c.price=p}
+function signal(c){const a=avg(c),m=MODES[state.mode]||MODES.beginner;if(a){const net=c.target>0?c.target*.95:Infinity;if(c.change<=-8)return "sell";if(c.price<=a*m.disc&&net>c.price*m.margin)return "buy";if(c.price>=a*1.1)return "sell";return "hold"}const upside=c.entry>0?(c.target*.95-c.entry)/c.entry*100:0;if(c.price<=c.entry&&upside>=8&&c.change>=-2)return "buy";if(c.change<=-8)return "sell";return "hold"}
+function label(s){return s==="buy"?"COMPRAR":s==="sell"?"EVITAR / REVISAR":"MANTENER"}
+function render(){
+ const opps=state.cards.filter(c=>signal(c)==="buy").map(c=>({c,m:c.target>0?(c.target*.95-c.price)/c.price*100:0})).sort((a,b)=>b.m-a.m).slice(0,3);
+ $("#opps").innerHTML="<strong>Oportunidades:</strong> "+opps.map(o=>esc(o.c.name)+" ("+money(o.c.price)+(o.m?", +"+o.m.toFixed(1)+"% neto":"")+")").join(" · ");$("#opps").style.display=opps.length?"":"none";$("#mode").value=state.mode;
+ $("#capitalDisplay").textContent=money(state.capital);
+ const open=state.trades.filter(t=>!t.sellPrice).reduce((a,t)=>a+t.buy*t.qty,0);
+ const realized=state.trades.filter(t=>t.sellPrice).reduce((a,t)=>a+(t.sellPrice*.95-t.buy)*t.qty,0);
+ $("#investedDisplay").textContent=money(open);$("#profitDisplay").textContent=(realized>=0?"+":"")+money(realized);
+ const q=$("#searchCards").value.toLowerCase(), f=$("#filterSignal").value;
+ const cards=state.cards.filter(c=>c.name.toLowerCase().includes(q)).filter(c=>f==="all"||signal(c)===f);
+ $("#cardsGrid").innerHTML=cards.map(c=>{const s=signal(c);return `<article class="player-card"><div class="player-top"><h3>${esc(c.name)}</h3><span class="tag ${s}">${label(s)}</span></div><div class="price">${money(c.price)} <small>🪙</small></div><div class="player-meta"><span>${esc(c.kind||"Carta")} · Prom. ${avg(c)?money(avg(c)):"—"}</span><span>${Number(c.change)>=0?"+":""}${Number(c.change||0).toFixed(1)}% vs anterior</span></div><div class="player-meta" style="margin-top:8px"><span>Entrada: ${money(c.entry)}</span><span>Objetivo: ${money(c.target)}</span></div><div class="player-meta" style="margin-top:8px"><span>Equilibrio: ${money(c.price/.95)}</span><span>Margen neto: ${c.target>0&&c.price>0?((c.target*.95-c.price)/c.price*100).toFixed(1)+"%":"—"}</span></div>${spark(c)}<small class="muted">${ago(c)}</small><div class="player-actions"><button class="btn" data-edit="${id(c)}">Editar precio</button><button class="btn" data-alert="${id(c)}">Alertarme</button><button class="btn" data-delete="${id(c)}">×</button></div></article>`}).join("")||'<p class="muted">No hay cartas que coincidan. Añade una para comenzar.</p>';
+ $("#tradesList").innerHTML=state.trades.length?`<table class="trade-table"><thead><tr><th>Jugador</th><th>Compra</th><th>Venta</th><th>Cantidad</th><th>Resultado neto</th></tr></thead><tbody>${state.trades.map(t=>`<tr><td>${esc(t.player)}</td><td>${money(t.buy)}</td><td>${t.sellPrice?money(t.sellPrice):"Abierta"}</td><td>${t.qty}</td><td>${t.sellPrice?money((t.sellPrice*.95-t.buy)*t.qty):"—"}</td></tr>`).join("")}</tbody></table>`:'<p class="muted" style="padding:16px">Todavía no registras operaciones.</p>';
+ $("#capitalInput").value=state.capital;$("#calcCapital").value=state.capital;$("#apiUrl").value=state.apiUrl||"";
+ calc();
+}
+function id(c){return state.cards.indexOf(c)}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function calc(){const cap=+$("#calcCapital").value||0,b=+$("#calcBuy").value||0,s=+$("#calcSell").value||0,q=Math.max(1,+$("#calcQty").value||1),cost=b*q,net=s*.95*q,p=net-cost;$("#calcProfit").textContent=(p>=0?"+":"")+money(p);$("#calcProfit").style.color=p>=0?"#7ce0b0":"#ffaaaa";$("#calcNet").textContent=money(net);$("#calcBreak").textContent=money(b/.95);$("#calcRoi").textContent=(cost?p/cost*100:0).toFixed(2)+"%";$("#calcRemaining").textContent=money(cap-cost);$("#calcHint").textContent=cost>cap?"Capital insuficiente para esta operación.":p>0?"La operación supera el punto de equilibrio antes de otros costes.":"El objetivo no cubre compra e impuesto."}
+$$(".tab").forEach(b=>b.onclick=()=>{$$(".tab").forEach(x=>x.classList.toggle("active",x===b));$$(".panel").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab))});
+["#searchCards","#filterSignal"].forEach(s=>$(s).addEventListener("input",render));
+["#calcCapital","#calcBuy","#calcSell","#calcQty"].forEach(s=>$(s).addEventListener("input",calc));
+$("#mode").addEventListener("change",e=>{state.mode=e.target.value;save()});
+$("#addCardBtn").onclick=()=>$("#cardDialog").showModal();
+$("#cardForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);state.cards.unshift({name:f.get("name"),price:+f.get("price"),entry:+f.get("entry")||0,target:+f.get("target")||0,change:+f.get("change")||0,kind:f.get("kind"),history:[{t:Date.now(),p:+f.get("price")}]});save();$("#cardDialog").close();e.target.reset()};
+$("#cardsGrid").onclick=async e=>{const edit=e.target.dataset.edit,del=e.target.dataset.delete,bell=e.target.dataset.alert;if(edit!==undefined){const c=state.cards[+edit],p=prompt("Nuevo precio actual para "+c.name,c.price);if(p!==null&&+p>0){setPrice(c,+p);save();await checkAlerts(c)}}if(del!==undefined&&confirm("¿Eliminar carta del radar?")){state.cards.splice(+del,1);save()}if(bell!==undefined){const c=state.cards[+bell];if(!("Notification"in window)){alert("Este navegador no admite notificaciones")}else{const perm=await Notification.requestPermission();if(perm==="granted")await notify("FC27 Trader: "+c.name,"Precio actual: "+money(c.price)+" monedas.")}}};
+$("#tradeForm").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);state.trades.unshift({player:f.get("player"),buy:+f.get("buy"),sellPrice:+f.get("sell")||0,qty:+f.get("qty")});save();e.target.reset()};
+$("#saveCapital").onclick=()=>{state.capital=+$("#capitalInput").value||0;save()};
+$("#notifyBtn").onclick=async()=>{if(!("Notification"in window)){$("#notifyStatus").textContent="Notificaciones no compatibles con este navegador.";return}const p=await Notification.requestPermission();if(p==="granted")notify("FC27 Trader","Notificaciones activadas.");$("#notifyStatus").textContent=p==="granted"?"Permiso concedido. Las alertas se activan cuando actualices precios en esta versión.":"Permiso no concedido."};
+async function notify(title,body){if(!("Notification"in window)||Notification.permission!=="granted")return false;try{const r=await navigator.serviceWorker.ready;await r.showNotification(title,{body,icon:"icon.svg",tag:title});return true}catch{try{new Notification(title,{body});return true}catch{return false}}}
+async function checkAlerts(c){if(c.entry>0&&c.price<=c.entry)await notify("FC27 Trader · Comprar",c.name+" bajó a "+money(c.price)+" (tu objetivo de compra: "+money(c.entry)+").");else if(c.target>0&&c.price>=c.target)await notify("FC27 Trader · Vender",c.name+" llegó a "+money(c.price)+". Neto tras 5%: "+money(c.price*.95)+".");else if(signal(c)==="buy")await notify("FC27 Trader · Oportunidad",c.name+" está por debajo de su promedio: "+money(c.price)+".")}
+$("#csvBtn").onclick=()=>$("#csvFile").click();
+$("#csvFile").onchange=async e=>{const file=e.target.files[0];if(!file)return;const rows=(await file.text()).split(/\r?\n/).map(l=>l.split(/[;,\t]/).map(x=>x.trim().replace(/^"|"$/g,"")));let n=0;const touched=[];for(const r of rows){const p=+String(r[1]||"").replace(/\D/g,"");if(!r[0]||!(p>0))continue;let c=state.cards.find(x=>x.name.toLowerCase()===r[0].toLowerCase());if(!c){c={name:r[0],price:0,entry:0,target:0,change:0,kind:"Otro",history:[]};state.cards.unshift(c)}const t=r[2]&&!isNaN(Date.parse(r[2]))?Date.parse(r[2]):Date.now();setPrice(c,p,t);touched.push(c);n++}save();$("#csvStatus").textContent=n?n+" precios importados.":"No encontré filas válidas. Formato: jugador,precio,fecha";for(const c of touched)await checkAlerts(c);e.target.value=""};
+$("#exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="fc27-trader-backup.json";a.click();URL.revokeObjectURL(a.href)};
+$("#resetBtn").onclick=()=>{if(confirm("Esto borrará las cartas, operaciones y configuración guardadas en este navegador. ¿Continuar?")){localStorage.removeItem(KEY);state=structuredClone(defaults);save()}};
+$("#saveApi").onclick=()=>{state.apiUrl=$("#apiUrl").value.trim();save();$("#apiStatus").textContent=state.apiUrl?"URL guardada. Falta implementar y validar el contrato de la API en el backend.":"URL eliminada."};
+let deferredPrompt;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;$("#installBtn").hidden=false});$("#installBtn").onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("#installBtn").hidden=true}else alert("En Chrome: menú ⋮ → Instalar aplicación o Añadir a pantalla de inicio.")};
+if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+render();
